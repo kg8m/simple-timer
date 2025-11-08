@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Simple Timer</title>
+
+    <!-- Made with ChatGPT and Claude -->
+
+    <style>
+      :root {
+        --bg: #0f172a;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --card: #111827;
+        --accent: #22d3ee;
+        --danger: #ef4444;
+        --ok: #22c55e;
+        --border: #1f2937;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        font:
+          16px/1.5 system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Helvetica,
+          Arial,
+          "Apple Color Emoji",
+          "Segoe UI Emoji";
+        background: var(--bg);
+        color: var(--fg);
+      }
+
+      .container {
+        max-width: 900px;
+        margin-inline: auto;
+        padding: 24px;
+      }
+
+      .header {
+        margin-bottom: 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      h1 {
+        font-size: clamp(20px, 3vw, 28px);
+        margin: 0;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 16px;
+      }
+
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+      }
+
+      .row > * {
+        flex: 1 1 160px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .field label {
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      input,
+      button {
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #0b1220;
+        color: var(--fg);
+        padding: 10px 12px;
+        white-space: nowrap;
+      }
+
+      input::placeholder {
+        color: #6b7280;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      button.primary {
+        background: linear-gradient(180deg, #0ea5e9, #06b6d4);
+        border: 1px solid #0369a1;
+        color: black;
+        font-weight: 700;
+      }
+
+      button.danger {
+        background: transparent;
+        border-color: #7f1d1d;
+        color: #fecaca;
+      }
+
+      .help {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .list {
+        margin-top: 18px;
+      }
+
+      /* Delete column fits content to avoid drifting too far right */
+      .timer {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr 1fr 0.8fr 150px;
+        gap: 10px;
+        align-items: center;
+        border-top: 1px solid var(--border);
+        padding: 10px 0;
+        text-align: center;
+      }
+
+      .timer.list-header {
+        border-top: none;
+      }
+
+      .timer.list-header .controls {
+        justify-content: center;
+        text-align: center;
+      }
+
+      .title {
+        font-weight: 600;
+        word-break: break-word;
+        text-align: left;
+      }
+
+      .when,
+      .remain,
+      .status {
+        color: var(--muted);
+      }
+
+      .status.ok {
+        color: var(--ok);
+        font-weight: 700;
+      }
+
+      .status.done {
+        color: var(--muted);
+      }
+
+      .controls {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        text-align: right;
+      }
+
+      .footer {
+        margin-top: 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      @media (max-width: 640px) {
+        .timer {
+          grid-template-columns: 1.2fr 1fr 1fr 0.8fr 75px;
+        }
+
+        .controls {
+          flex-direction: column;
+          width: 100%;
+        }
+
+        .controls button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Simple Timer</h1>
+      </div>
+
+      <div class="card" role="region" aria-label="Add Timer">
+        <form id="timer-form" class="row" autocomplete="off">
+          <div class="field">
+            <label for="title">Title (optional)</label>
+            <input
+              id="title"
+              name="title"
+              placeholder="e.g., Tea / Meeting / Break"
+            />
+          </div>
+
+          <div class="field">
+            <label for="duration" title="mm:ss / minutes / 1h / 30s etc."
+              >Duration</label
+            >
+            <input
+              id="duration"
+              name="duration"
+              inputmode="numeric"
+              placeholder="5:00 / 5 / 1h / 30s"
+              required
+            />
+          </div>
+
+          <div class="field">
+            <label class="sr-only" for="add">Add</label>
+            <button id="add" class="primary" type="submit">Add Timer</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card list" id="timers" role="region" aria-label="Timers">
+        <div class="list-header timer" aria-hidden="true" style="opacity: 0.7">
+          <div class="title">Title</div>
+          <div class="when">Ends At</div>
+          <div class="remain">Remaining</div>
+          <div class="status">Status</div>
+          <div class="controls">Actions</div>
+        </div>
+        <!-- Timers go here: generated by JavaScript -->
+      </div>
+
+      <div class="footer">
+        <div class="help">Timers will beep when finished.</div>
+        <button id="clear-all" class="danger" type="button">Clear All</button>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        /*** State ***/
+        /** @type {{id:number,title:string,endAt:number,createdAt:number,notified:boolean,paused:boolean,pausedAt?:number,remainingAtPause?:number,originalDuration:number}[]} */
+        let timers = [];
+        let seq = 1;
+
+        /*** LocalStorage ***/
+        const STORAGE_KEY = "simple-timer-data";
+
+        function saveToStorage() {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ seq, timers }));
+          } catch (e) {
+            console.warn("Failed to save to localStorage:", e);
+          }
+        }
+
+        function loadFromStorage() {
+          try {
+            const data = localStorage.getItem(STORAGE_KEY);
+            if (data) {
+              const parsed = JSON.parse(data);
+              seq = parsed.seq || 1;
+              timers = parsed.timers || [];
+            }
+          } catch (e) {
+            console.warn("Failed to load from localStorage:", e);
+          }
+        }
+
+        loadFromStorage();
+
+        /*** Utilities ***/
+        const html = (strings, ...values) => {
+          return strings.reduce(
+            (result, string) => `${result}${string}${values.shift() ?? ""}`,
+            "",
+          );
+        };
+        const $ = (sel, el = document) => el.querySelector(sel);
+        const fmt2 = (n) => String(Math.floor(Math.abs(n))).padStart(2, "0");
+        const clamp0 = (ms) => (ms < 0 ? 0 : ms);
+        // time-only (no date)
+        const toTime = (ts) =>
+          new Date(ts).toLocaleTimeString([], { hour12: false });
+
+        function parseDuration(input) {
+          const s = String(input || "").trim();
+          if (!s) return 0;
+
+          if (/^\d+:\d{1,2}:\d{1,2}$/.test(s)) {
+            const [h, m, sec] = s.split(":").map(Number);
+            return (h * 60 * 60 + m * 60 + sec) * 1000;
+          }
+
+          if (/^\d+:\d{1,2}$/.test(s)) {
+            const [m, sec] = s.split(":").map(Number);
+            return (m * 60 + sec) * 1000;
+          }
+
+          if (/^\d+(?:\.\d+)?$/.test(s)) {
+            // treat as minutes (allow decimals)
+            return Math.round(parseFloat(s) * 60 * 1000);
+          }
+
+          // allow short units like 1h, 90s, 500ms
+          const m = s.match(/^(\d+(?:\.\d+)?)(ms|s|m|h)$/i);
+          if (m) {
+            const v = parseFloat(m[1]);
+            const unit = m[2].toLowerCase();
+
+            if (unit === "ms") return Math.max(0, Math.round(v));
+            if (unit === "s") return Math.round(v * 1000);
+            if (unit === "m") return Math.round(v * 60 * 1000);
+            if (unit === "h") return Math.round(v * 3600 * 1000);
+          }
+
+          return 0;
+        }
+
+        function humanize(ms) {
+          ms = Math.max(0, Math.round(ms));
+          const totalSec = Math.floor(ms / 1000);
+          const h = Math.floor(totalSec / 3600);
+          const m = Math.floor((totalSec % 3600) / 60);
+          const s = totalSec % 60;
+
+          return `${fmt2(h)}:${fmt2(m)}:${fmt2(s)}`;
+        }
+
+        /*** Sound ***/
+        let audioCtx = null;
+        function playBeep(times = 3, freq = 1000, duration = 0.18, gap = 0.08) {
+          try {
+            if (!audioCtx) {
+              audioCtx = new (window.AudioContext ||
+                window.webkitAudioContext)();
+            }
+
+            const now = audioCtx.currentTime;
+            for (let i = 0; i < times; i++) {
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+
+              osc.type = "sine";
+              osc.frequency.value = freq;
+              gain.gain.setValueAtTime(0.0001, now + i * (duration + gap));
+              gain.gain.exponentialRampToValueAtTime(
+                0.3,
+                now + i * (duration + gap) + 0.01,
+              );
+              gain.gain.exponentialRampToValueAtTime(
+                0.0001,
+                now + i * (duration + gap) + duration,
+              );
+              osc.connect(gain).connect(audioCtx.destination);
+              osc.start(now + i * (duration + gap));
+              osc.stop(now + i * (duration + gap) + duration + 0.05);
+            }
+          } catch (e) {
+            /* ignore if audio is unavailable */
+            console.warn("Audio playback failed:", e);
+          }
+        }
+
+        const listEl = $("#timers");
+
+        /*** Render ***/
+        function escapeHtml(s) {
+          const map = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          };
+
+          return String(s).replace(/[&<>"']/g, (ch) => map[ch]);
+        }
+
+        function render() {
+          // sort by end time ascending
+          const sorted = [...timers].sort((a, b) => a.endAt - b.endAt);
+
+          const timerEls = listEl.querySelectorAll(".timer:not(.list-header)");
+          for (const timerEl of timerEls) {
+            timerEl.remove();
+          }
+
+          for (const t of sorted) {
+            const row = document.createElement("div");
+            row.className = "timer";
+            row.dataset.id = String(t.id);
+
+            const now = Date.now();
+            let remaining;
+            if (t.paused) {
+              remaining = t.remainingAtPause || 0;
+            } else {
+              remaining = t.endAt - now;
+            }
+            const done = remaining <= 0 && !t.paused;
+
+            let statusText, statusClass;
+            if (t.paused) {
+              statusText = "Paused";
+              statusClass = "done";
+            } else if (done) {
+              statusText = "Done";
+              statusClass = "done";
+            } else {
+              statusText = "Running";
+              statusClass = "ok";
+            }
+
+            const pauseResumeBtn = done
+              ? html`<button data-act="restart" type="button">Restart</button>`
+              : t.paused
+                ? html`<button data-act="resume" type="button">Resume</button>`
+                : html`<button data-act="pause" type="button">Pause</button>`;
+
+            row.innerHTML = html`
+              <div class="title">
+                ${t.title
+                  ? escapeHtml(t.title)
+                  : `<span class="when">(Untitled)</span>`}
+              </div>
+              <div class="when">${t.paused ? "--:--:--" : toTime(t.endAt)}</div>
+              <div class="remain">${humanize(clamp0(remaining))}</div>
+              <div class="status ${statusClass}">${statusText}</div>
+              <div class="controls">
+                ${pauseResumeBtn}
+                <button
+                  class="danger"
+                  data-act="delete"
+                  aria-label="Delete"
+                  type="button"
+                >
+                  Delete
+                </button>
+              </div>
+            `;
+
+            listEl.appendChild(row);
+          }
+        }
+
+        /*** Actions ***/
+        // Create timer (Enter or button click)
+        $("#timer-form").addEventListener("submit", (e) => {
+          e.preventDefault();
+
+          const title = $("#title").value;
+          const dur = parseDuration($("#duration").value);
+          const now = Date.now();
+
+          if (!dur || dur <= 0) {
+            alert("Enter duration as mm:ss or minutes (number).");
+            return;
+          }
+
+          timers.push({
+            id: seq++,
+            title,
+            endAt: now + dur,
+            createdAt: now,
+            notified: false,
+            paused: false,
+            originalDuration: dur,
+          });
+
+          $("#title").value = "";
+          $("#duration").value = "";
+
+          saveToStorage();
+          render();
+
+          $("#title").focus();
+        });
+
+        // Timer controls (pause/resume/restart/delete)
+        listEl.addEventListener("click", (e) => {
+          const btn = e.target.closest("button");
+          if (!btn) return;
+          const act = btn.getAttribute("data-act");
+          const row = btn.closest(".timer");
+          const id = Number(row?.dataset.id);
+          const t = timers.find((x) => x.id === id);
+
+          if (act === "delete") {
+            timers = timers.filter((t) => t.id !== id);
+            saveToStorage();
+            render();
+          } else if (act === "pause" && t && !t.paused) {
+            const now = Date.now();
+            t.paused = true;
+            t.pausedAt = now;
+            t.remainingAtPause = t.endAt - now;
+            saveToStorage();
+            render();
+          } else if (act === "resume" && t && t.paused) {
+            const now = Date.now();
+            t.paused = false;
+            t.endAt = now + (t.remainingAtPause || 0);
+            t.notified = false;
+            delete t.pausedAt;
+            delete t.remainingAtPause;
+            saveToStorage();
+            render();
+          } else if (act === "restart" && t) {
+            const now = Date.now();
+            t.endAt = now + t.originalDuration;
+            t.createdAt = now;
+            t.notified = false;
+            t.paused = false;
+            delete t.pausedAt;
+            delete t.remainingAtPause;
+            saveToStorage();
+            render();
+          }
+        });
+
+        // Clear all timers
+        $("#clear-all").addEventListener("click", () => {
+          if (timers.length === 0) return;
+          if (confirm("Are you sure you want to delete all timers?")) {
+            timers = [];
+            saveToStorage();
+            render();
+          }
+        });
+
+        // Update remaining times every 200ms & detect completion
+        setInterval(() => {
+          let changed = false;
+          const now = Date.now();
+          for (const t of timers) {
+            if (!t.paused && !t.notified && now >= t.endAt) {
+              t.notified = true;
+              playBeep(3, 1000, 0.18, 0.08);
+              changed = true;
+            }
+          }
+
+          if (changed) {
+            saveToStorage();
+            render();
+            return;
+          }
+
+          // lightweight in-place update
+          const rows = [...listEl.children];
+          rows.forEach((row) => {
+            const id = Number(row.dataset.id);
+            const t = timers.find((x) => x.id === id);
+            if (!t) return;
+
+            const remainEl = $(".remain", row);
+            const statusEl = $(".status", row);
+
+            let remaining;
+            if (t.paused) {
+              remaining = t.remainingAtPause || 0;
+            } else {
+              remaining = t.endAt - now;
+            }
+
+            if (t.paused) {
+              statusEl.textContent = "Paused";
+              statusEl.classList.remove("ok");
+              statusEl.classList.add("done");
+              remainEl.textContent = humanize(clamp0(remaining));
+            } else if (remaining <= 0) {
+              statusEl.textContent = "Done";
+              statusEl.classList.remove("ok");
+              statusEl.classList.add("done");
+              remainEl.textContent = humanize(0);
+            } else {
+              remainEl.textContent = humanize(remaining);
+            }
+          });
+        }, 200);
+
+        render();
+      })();
+    </script>
+  </body>
+</html>
