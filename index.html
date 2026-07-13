@@ -250,14 +250,14 @@
           </div>
 
           <div class="field">
-            <label for="duration" title="mm:ss / minutes / 1h / 30s etc."
+            <label for="duration" title="mm:ss / minutes / 1h / 30s / 2d etc."
               >Duration</label
             >
             <input
               id="duration"
               name="duration"
               inputmode="numeric"
-              placeholder="5:00 / 5 / 1h / 30s"
+              placeholder="5:00 / 5 / 1h / 30s / 2d"
               required
             />
           </div>
@@ -352,8 +352,8 @@
             return Math.round(parseFloat(s) * 60 * 1000);
           }
 
-          // allow short units like 1h, 90s, 500ms
-          const m = s.match(/^(\d+(?:\.\d+)?)(ms|s|m|h)$/i);
+          // allow short units like 1h, 90s, 500ms, 2d
+          const m = s.match(/^(\d+(?:\.\d+)?)(ms|s|m|h|d)$/i);
           if (m) {
             const v = parseFloat(m[1]);
             const unit = m[2].toLowerCase();
@@ -362,6 +362,7 @@
             if (unit === "s") return Math.round(v * 1000);
             if (unit === "m") return Math.round(v * 60 * 1000);
             if (unit === "h") return Math.round(v * 3600 * 1000);
+            if (unit === "d") return Math.round(v * 86400 * 1000);
           }
 
           return 0;
