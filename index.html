@@ -378,6 +378,22 @@
           return `${fmt2(h)}:${fmt2(m)}:${fmt2(s)}`;
         }
 
+        function formatDurationLabel(ms) {
+          const totalSec = Math.round(Math.max(0, ms) / 1000);
+          const d = Math.floor(totalSec / 86400);
+          const h = Math.floor((totalSec % 86400) / 3600);
+          const m = Math.floor((totalSec % 3600) / 60);
+          const s = totalSec % 60;
+
+          const parts = [];
+          if (d) parts.push(`${d}d`);
+          if (h) parts.push(`${h}h`);
+          if (m) parts.push(`${m}m`);
+          if (s || parts.length === 0) parts.push(`${s}s`);
+
+          return parts.join(" ");
+        }
+
         /*** Sound ***/
         let audioCtx = null;
         function playBeep(times = 3, freq = 1000, duration = 0.18, gap = 0.08) {
@@ -473,7 +489,7 @@
               <div class="title">
                 ${t.title
                   ? escapeHtml(t.title)
-                  : `<span class="when">(Untitled)</span>`}
+                  : `<span class="when">(${formatDurationLabel(t.originalDuration)})</span>`}
               </div>
               <div class="when">${t.paused ? "--:--:--" : toTime(t.endAt)}</div>
               <div class="remain">${humanize(clamp0(remaining))}</div>
