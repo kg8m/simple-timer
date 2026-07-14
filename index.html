@@ -236,6 +236,10 @@
         text-align: left;
       }
 
+      .mode-badge {
+        margin-right: 6px;
+      }
+
       .when,
       .remain,
       .status {
@@ -581,6 +585,28 @@
           return parts.join(" ");
         }
 
+        // Fallback label for an untitled timer: the target time for "time"
+        // mode, or the configured duration for "duration" mode.
+        function formatTimerLabel(t) {
+          return t.mode === "time"
+            ? escapeHtml(String(t.targetTime))
+            : formatDurationLabel(t.originalDuration);
+        }
+
+        // Small badge indicating whether a timer was set by duration or by
+        // a target clock time.
+        function modeBadge(mode) {
+          const isTime = mode === "time";
+          const label = isTime ? "At time" : "Duration";
+
+          return html`<span
+            class="mode-badge"
+            title="${label}"
+            aria-label="${label}"
+            >${isTime ? "🕐" : "⏳"}</span
+          >`;
+        }
+
         /*** Sound ***/
         let audioCtx = null;
         function playBeep(times = 3, freq = 1000, duration = 0.18, gap = 0.08) {
@@ -698,9 +724,9 @@
 
             row.innerHTML = html`
               <div class="title">
-                ${t.title
+                ${modeBadge(t.mode)}${t.title
                   ? escapeHtml(t.title)
-                  : `<span class="when">(${formatDurationLabel(t.originalDuration)})</span>`}
+                  : `<span class="when">(${formatTimerLabel(t)})</span>`}
               </div>
               <div class="when-remain">
                 <div class="when">
@@ -757,9 +783,9 @@
 
             row.innerHTML = html`
               <div class="title">
-                ${t.title
+                ${modeBadge(t.mode)}${t.title
                   ? escapeHtml(t.title)
-                  : `<span class="when">(${formatDurationLabel(t.originalDuration)})</span>`}
+                  : `<span class="when">(${formatTimerLabel(t)})</span>`}
               </div>
               <div class="remain">${humanize(purgesIn)}</div>
               <div class="controls">
@@ -818,9 +844,9 @@
 
             row.innerHTML = html`
               <div class="title">
-                ${t.title
+                ${modeBadge(t.mode)}${t.title
                   ? escapeHtml(t.title)
-                  : `<span class="when">(${formatDurationLabel(t.originalDuration)})</span>`}
+                  : `<span class="when">(${formatTimerLabel(t)})</span>`}
               </div>
               <div class="when">${toTime(t.archivedAt)}</div>
               <div class="controls">
