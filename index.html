@@ -105,13 +105,38 @@
         text-overflow: ellipsis;
       }
 
+      .mode-toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 12px;
+      }
+
+      .mode-toggle-row label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+        color: var(--muted);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      .mode-toggle-row input[type="radio"] {
+        width: 14px;
+        height: 14px;
+        margin: 0;
+      }
+
       input,
       button {
+        box-sizing: border-box;
+        height: 40px;
         border-radius: 12px;
         border: 1px solid var(--border);
         background: #0b1220;
         color: var(--fg);
-        padding: 10px 12px;
+        padding: 0 12px;
         white-space: nowrap;
       }
 
@@ -290,32 +315,61 @@
       </div>
 
       <div class="card" role="region" aria-label="Add Timer">
-        <form id="timer-form" class="row" autocomplete="off">
-          <div class="field">
-            <label for="title">Title (optional)</label>
-            <input
-              id="title"
-              name="title"
-              placeholder="e.g., Tea / Meeting / Break"
-            />
+        <form id="timer-form" autocomplete="off">
+          <div
+            class="mode-toggle-row"
+            role="radiogroup"
+            aria-labelledby="mode-label"
+          >
+            <span class="sr-only" id="mode-label">Mode</span>
+            <label>
+              <input
+                type="radio"
+                name="mode"
+                id="mode-duration"
+                value="duration"
+                checked
+              />
+              Duration
+            </label>
+            <label>
+              <input type="radio" name="mode" id="mode-time" value="time" />
+              At time
+            </label>
           </div>
 
-          <div class="field">
-            <label for="duration" title="mm:ss / minutes / 1h / 30s / 2d etc."
-              >Duration</label
-            >
-            <input
-              id="duration"
-              name="duration"
-              inputmode="numeric"
-              placeholder="5:00 / 5 / 1h / 30s / 2d"
-              required
-            />
-          </div>
+          <div class="row">
+            <div class="field">
+              <label for="title">Title (optional)</label>
+              <input
+                id="title"
+                name="title"
+                placeholder="e.g., Tea / Meeting / Break"
+              />
+            </div>
 
-          <div class="field">
-            <label class="sr-only" for="add">Add</label>
-            <button id="add" class="primary" type="submit">Add Timer</button>
+            <div class="field" id="duration-field">
+              <label for="duration" title="mm:ss / minutes / 1h / 30s / 2d etc."
+                >Duration</label
+              >
+              <input
+                id="duration"
+                name="duration"
+                inputmode="numeric"
+                placeholder="5:00 / 5 / 1h / 30s / 2d"
+                required
+              />
+            </div>
+
+            <div class="field" id="time-field" style="display: none">
+              <label for="target-time">At time</label>
+              <input id="target-time" name="target-time" type="time" />
+            </div>
+
+            <div class="field">
+              <label class="sr-only" for="add">Add</label>
+              <button id="add" class="primary" type="submit">Add Timer</button>
+            </div>
           </div>
         </form>
       </div>
@@ -473,6 +527,23 @@
           }
 
           return 0;
+        }
+
+        // Resolve "HH:MM" to the next occurrence of that time (today if it
+        // hasn't passed yet, otherwise tomorrow).
+        function computeNextTimeBasedEndAt(timeStr, now = Date.now()) {
+          const m = String(timeStr || "").match(/^(\d{1,2}):(\d{2})$/);
+          if (!m) return null;
+
+          const hh = Number(m[1]);
+          const mm = Number(m[2]);
+          const d = new Date(now);
+          d.setHours(hh, mm, 0, 0);
+
+          let target = d.getTime();
+          if (target <= now) target += 24 * 60 * 60 * 1000;
+
+          return target;
         }
 
         function humanize(ms) {
@@ -775,31 +846,76 @@
         }
 
         /*** Actions ***/
+        // Toggle Duration/At-time input fields based on the selected mode
+        const durationFieldEl = $("#duration-field");
+        const timeFieldEl = $("#time-field");
+        const durationInputEl = $("#duration");
+        const targetTimeInputEl = $("#target-time");
+
+        function updateModeFieldsVisibility() {
+          const isTime = $('input[name="mode"]:checked').value === "time";
+          durationFieldEl.style.display = isTime ? "none" : "";
+          timeFieldEl.style.display = isTime ? "" : "none";
+          durationInputEl.required = !isTime;
+          targetTimeInputEl.required = isTime;
+          $("#title").focus();
+        }
+
+        document
+          .querySelectorAll('input[name="mode"]')
+          .forEach((el) =>
+            el.addEventListener("change", updateModeFieldsVisibility),
+          );
+
+        updateModeFieldsVisibility();
+
         // Create timer (Enter or button click)
         $("#timer-form").addEventListener("submit", (e) => {
           e.preventDefault();
 
           const title = $("#title").value;
-          const dur = parseDuration($("#duration").value);
+          const mode = $('input[name="mode"]:checked').value;
           const now = Date.now();
 
-          if (!dur || dur <= 0) {
-            alert("Enter duration as mm:ss or minutes (number).");
-            return;
+          let endAt, originalDuration, targetTime;
+
+          if (mode === "time") {
+            targetTime = targetTimeInputEl.value;
+            endAt = computeNextTimeBasedEndAt(targetTime, now);
+
+            if (!targetTime || endAt == null) {
+              alert("Enter a valid time (HH:MM).");
+              return;
+            }
+          } else {
+            const dur = parseDuration($("#duration").value);
+
+            if (!dur || dur <= 0) {
+              alert("Enter duration as mm:ss or minutes (number).");
+              return;
+            }
+
+            originalDuration = dur;
+            endAt = now + dur;
           }
 
           timers.push({
             id: seq++,
             title,
-            endAt: now + dur,
+            mode,
+            endAt,
             createdAt: now,
             notified: false,
             paused: false,
-            originalDuration: dur,
+            originalDuration,
+            targetTime,
           });
 
           $("#title").value = "";
           $("#duration").value = "";
+          targetTimeInputEl.value = "";
+          $("#mode-duration").checked = true;
+          updateModeFieldsVisibility();
 
           saveToStorage();
           render();
