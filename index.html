@@ -136,6 +136,25 @@
         color: #fecaca;
       }
 
+      button.accent {
+        background: transparent;
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      /* Icon-only action buttons (Pause/Resume/Restart/Archive/Delete/Restore) */
+      .controls button {
+        box-sizing: border-box;
+        padding: 8px;
+        min-width: 36px;
+        height: 36px;
+        font-size: 16px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
       .help {
         color: var(--muted);
         font-size: 13px;
@@ -145,10 +164,10 @@
         margin-top: 18px;
       }
 
-      /* Controls column is wide enough to fit its buttons on one line */
+      /* Controls column is wide enough to fit its icon buttons on one line */
       .timer {
         display: grid;
-        grid-template-columns: 1.2fr 1fr 1fr 0.8fr 280px;
+        grid-template-columns: 1.2fr 2fr 0.8fr 150px;
         gap: 10px;
         align-items: center;
         border-top: 1px solid var(--border);
@@ -156,16 +175,23 @@
         text-align: center;
       }
 
+      /* Ends At + Remaining share one column: spread across it when there's room */
+      .when-remain {
+        display: flex;
+        justify-content: space-evenly;
+        gap: 8px;
+      }
+
       .timer.list-header {
         border-top: none;
       }
 
       .timer.trash-row {
-        grid-template-columns: 1.5fr 1fr 130px;
+        grid-template-columns: 1.5fr 1fr 70px;
       }
 
       .timer.archive-row {
-        grid-template-columns: 1.5fr 1fr 200px;
+        grid-template-columns: 1.5fr 1fr 110px;
       }
 
       .timer.list-header .controls {
@@ -231,21 +257,27 @@
 
       @media (max-width: 640px) {
         .timer {
-          grid-template-columns: 1.2fr 1fr 1fr 0.8fr 75px;
+          grid-template-columns: 1.6fr 1fr 0.8fr 135px;
         }
 
-        .timer.trash-row,
+        .timer.trash-row {
+          grid-template-columns: 1.5fr 1fr 60px;
+        }
+
         .timer.archive-row {
-          grid-template-columns: 1.5fr 1fr 75px;
+          grid-template-columns: 1.5fr 1fr 90px;
         }
 
-        .controls {
+        /* Stack Ends At above Remaining to save horizontal space */
+        .when-remain {
           flex-direction: column;
-          width: 100%;
+          align-items: center;
+          gap: 2px;
         }
 
-        .controls button {
-          width: 100%;
+        /* Tighten button spacing so it doesn't read wider than the column gaps */
+        .controls {
+          gap: 4px;
         }
       }
     </style>
@@ -291,8 +323,10 @@
       <div class="card list" id="timers" role="region" aria-label="Timers">
         <div class="list-header timer" aria-hidden="true" style="opacity: 0.7">
           <div class="title">Title</div>
-          <div class="when">Ends At</div>
-          <div class="remain">Remaining</div>
+          <div class="when-remain">
+            <div class="when">Ends At</div>
+            <div class="remain">Remaining</div>
+          </div>
           <div class="status">Status</div>
           <div class="controls">Actions</div>
         </div>
@@ -553,10 +587,32 @@
             }
 
             const pauseResumeBtn = done
-              ? html`<button data-act="restart" type="button">Restart</button>`
+              ? html`<button
+                  class="accent"
+                  data-act="restart"
+                  title="Restart"
+                  aria-label="Restart"
+                  type="button"
+                >
+                  🔄
+                </button>`
               : t.paused
-                ? html`<button data-act="resume" type="button">Resume</button>`
-                : html`<button data-act="pause" type="button">Pause</button>`;
+                ? html`<button
+                    data-act="resume"
+                    title="Resume"
+                    aria-label="Resume"
+                    type="button"
+                  >
+                    ▶️
+                  </button>`
+                : html`<button
+                    data-act="pause"
+                    title="Pause"
+                    aria-label="Pause"
+                    type="button"
+                  >
+                    ⏸️
+                  </button>`;
 
             row.innerHTML = html`
               <div class="title">
@@ -564,19 +620,31 @@
                   ? escapeHtml(t.title)
                   : `<span class="when">(${formatDurationLabel(t.originalDuration)})</span>`}
               </div>
-              <div class="when">${t.paused ? "--:--:--" : toTime(t.endAt)}</div>
-              <div class="remain">${humanize(clamp0(remaining))}</div>
+              <div class="when-remain">
+                <div class="when">
+                  ${t.paused ? "--:--:--" : toTime(t.endAt)}
+                </div>
+                <div class="remain">${humanize(clamp0(remaining))}</div>
+              </div>
               <div class="status ${statusClass}">${statusText}</div>
               <div class="controls">
                 ${pauseResumeBtn}
-                <button data-act="archive" type="button">Archive</button>
+                <button
+                  data-act="archive"
+                  title="Archive"
+                  aria-label="Archive"
+                  type="button"
+                >
+                  🗄️
+                </button>
                 <button
                   class="danger"
                   data-act="delete"
+                  title="Delete"
                   aria-label="Delete"
                   type="button"
                 >
-                  Delete
+                  🗑️
                 </button>
               </div>
             `;
@@ -613,7 +681,15 @@
               </div>
               <div class="remain">${humanize(purgesIn)}</div>
               <div class="controls">
-                <button data-act="restore" type="button">Restore</button>
+                <button
+                  class="accent"
+                  data-act="restore"
+                  title="Restore"
+                  aria-label="Restore"
+                  type="button"
+                >
+                  ↩️
+                </button>
               </div>
             `;
 
@@ -664,14 +740,23 @@
               </div>
               <div class="when">${toTime(t.archivedAt)}</div>
               <div class="controls">
-                <button data-act="restart" type="button">Restart</button>
+                <button
+                  class="accent"
+                  data-act="restart"
+                  title="Restart"
+                  aria-label="Restart"
+                  type="button"
+                >
+                  🔄
+                </button>
                 <button
                   class="danger"
                   data-act="delete"
+                  title="Delete"
                   aria-label="Delete"
                   type="button"
                 >
-                  Delete
+                  🗑️
                 </button>
               </div>
             `;
