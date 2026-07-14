@@ -145,10 +145,10 @@
         margin-top: 18px;
       }
 
-      /* Delete column fits content to avoid drifting too far right */
+      /* Controls column is wide enough to fit its buttons on one line */
       .timer {
         display: grid;
-        grid-template-columns: 1.2fr 1fr 1fr 0.8fr 150px;
+        grid-template-columns: 1.2fr 1fr 1fr 0.8fr 280px;
         gap: 10px;
         align-items: center;
         border-top: 1px solid var(--border);
@@ -164,12 +164,17 @@
         grid-template-columns: 1.5fr 1fr 130px;
       }
 
+      .timer.archive-row {
+        grid-template-columns: 1.5fr 1fr 200px;
+      }
+
       .timer.list-header .controls {
         justify-content: center;
         text-align: center;
       }
 
-      .timer.trash-row .controls {
+      .timer.trash-row .controls,
+      .timer.archive-row .controls {
         justify-content: center;
         text-align: center;
       }
@@ -229,7 +234,8 @@
           grid-template-columns: 1.2fr 1fr 1fr 0.8fr 75px;
         }
 
-        .timer.trash-row {
+        .timer.trash-row,
+        .timer.archive-row {
           grid-template-columns: 1.5fr 1fr 75px;
         }
 
@@ -298,6 +304,30 @@
         <button id="clear-all" class="danger" type="button">Delete All</button>
       </div>
 
+      <div
+        class="card list"
+        id="archive-card"
+        role="region"
+        aria-label="Archived"
+      >
+        <div class="header" style="margin-bottom: 10px">
+          <h2 style="font-size: 16px; margin: 0">Archived</h2>
+          <span class="help">Kept until you restart or delete them.</span>
+        </div>
+        <div id="archive-empty" class="help">No archived timers.</div>
+        <div
+          class="timer list-header archive-row"
+          id="archive-header"
+          aria-hidden="true"
+          style="opacity: 0.7; display: none"
+        >
+          <div class="title">Title</div>
+          <div class="when">Archived At</div>
+          <div class="controls">Actions</div>
+        </div>
+        <div id="archive-list"></div>
+      </div>
+
       <div class="card list" id="trash-card" role="region" aria-label="Trash">
         <div class="header" style="margin-bottom: 10px">
           <h2 style="font-size: 16px; margin: 0">Trash</h2>
@@ -325,6 +355,8 @@
         let timers = [];
         /** @type {{id:number,title:string,originalDuration:number,deletedAt:number}[]} */
         let trash = [];
+        /** @type {{id:number,title:string,originalDuration:number,archivedAt:number}[]} */
+        let archived = [];
         let seq = 1;
 
         const TRASH_RETENTION_MS = 5 * 60 * 1000;
@@ -336,7 +368,7 @@
           try {
             localStorage.setItem(
               STORAGE_KEY,
-              JSON.stringify({ seq, timers, trash }),
+              JSON.stringify({ seq, timers, trash, archived }),
             );
           } catch (e) {
             console.warn("Failed to save to localStorage:", e);
@@ -351,6 +383,7 @@
               seq = parsed.seq || 1;
               timers = parsed.timers || [];
               trash = parsed.trash || [];
+              archived = parsed.archived || [];
             }
           } catch (e) {
             console.warn("Failed to load from localStorage:", e);
@@ -536,6 +569,7 @@
               <div class="status ${statusClass}">${statusText}</div>
               <div class="controls">
                 ${pauseResumeBtn}
+                <button data-act="archive" type="button">Archive</button>
                 <button
                   class="danger"
                   data-act="delete"
@@ -603,6 +637,58 @@
           return trash.length !== before;
         }
 
+        const archiveListEl = $("#archive-list");
+        const archiveEmptyEl = $("#archive-empty");
+        const archiveHeaderEl = $("#archive-header");
+
+        function renderArchived() {
+          // most recently archived first
+          const sorted = [...archived].sort(
+            (a, b) => b.archivedAt - a.archivedAt,
+          );
+
+          archiveEmptyEl.style.display = sorted.length ? "none" : "";
+          archiveHeaderEl.style.display = sorted.length ? "" : "none";
+          archiveListEl.innerHTML = "";
+
+          for (const t of sorted) {
+            const row = document.createElement("div");
+            row.className = "timer archive-row";
+            row.dataset.id = String(t.id);
+
+            row.innerHTML = html`
+              <div class="title">
+                ${t.title
+                  ? escapeHtml(t.title)
+                  : `<span class="when">(${formatDurationLabel(t.originalDuration)})</span>`}
+              </div>
+              <div class="when">${toTime(t.archivedAt)}</div>
+              <div class="controls">
+                <button data-act="restart" type="button">Restart</button>
+                <button
+                  class="danger"
+                  data-act="delete"
+                  aria-label="Delete"
+                  type="button"
+                >
+                  Delete
+                </button>
+              </div>
+            `;
+
+            archiveListEl.appendChild(row);
+          }
+        }
+
+        function moveToArchive(t) {
+          archived.push({
+            id: t.id,
+            title: t.title,
+            originalDuration: t.originalDuration,
+            archivedAt: Date.now(),
+          });
+        }
+
         /*** Actions ***/
         // Create timer (Enter or button click)
         $("#timer-form").addEventListener("submit", (e) => {
@@ -651,6 +737,12 @@
             saveToStorage();
             render();
             renderTrash();
+          } else if (act === "archive" && t) {
+            timers = timers.filter((x) => x.id !== id);
+            moveToArchive(t);
+            saveToStorage();
+            render();
+            renderArchived();
           } else if (act === "pause" && t && !t.paused) {
             const now = Date.now();
             t.paused = true;
@@ -706,6 +798,41 @@
 
             saveToStorage();
             render();
+            renderTrash();
+          }
+        });
+
+        // Archive controls (restart/delete)
+        archiveListEl.addEventListener("click", (e) => {
+          const btn = e.target.closest("button");
+          if (!btn) return;
+          const act = btn.getAttribute("data-act");
+          const row = btn.closest(".timer");
+          const id = Number(row?.dataset.id);
+          const idx = archived.findIndex((x) => x.id === id);
+          if (idx === -1) return;
+          const t = archived[idx];
+
+          if (act === "restart") {
+            const now = Date.now();
+            archived.splice(idx, 1);
+            timers.push({
+              id: seq++,
+              title: t.title,
+              endAt: now + t.originalDuration,
+              createdAt: now,
+              notified: false,
+              paused: false,
+              originalDuration: t.originalDuration,
+            });
+            saveToStorage();
+            render();
+            renderArchived();
+          } else if (act === "delete") {
+            archived.splice(idx, 1);
+            moveToTrash(t);
+            saveToStorage();
+            renderArchived();
             renderTrash();
           }
         });
@@ -795,6 +922,7 @@
         }
         render();
         renderTrash();
+        renderArchived();
       })();
     </script>
   </body>
