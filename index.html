@@ -1219,10 +1219,39 @@
           }
         });
 
-        // Update remaining times every 200ms & detect completion
-        // Reschedule via setTimeout so a slow tick doesn't queue up back-to-back runs like setInterval would
+        // Update remaining times & detect completion.
+        // Reschedule via setTimeout so a slow tick doesn't queue up back-to-back runs like setInterval would.
+        // The delay is computed dynamically: fire right after the soonest displayed-second boundary
+        // among all active timers/trash rows, instead of polling at a fixed interval.
+        function computeNextTickDelay(now) {
+          let minDelay = null;
+
+          for (const t of timers) {
+            if (t.paused || t.notified) continue;
+            const remaining = t.endAt - now;
+            if (remaining <= 0) continue;
+            const untilBoundary = remaining % 1000 || 1000;
+            minDelay =
+              minDelay === null
+                ? untilBoundary
+                : Math.min(minDelay, untilBoundary);
+          }
+
+          for (const t of trash) {
+            const purgesIn = clamp0(TRASH_RETENTION_MS - (now - t.deletedAt));
+            if (purgesIn <= 0) continue;
+            const untilBoundary = purgesIn % 1000 || 1000;
+            minDelay =
+              minDelay === null
+                ? untilBoundary
+                : Math.min(minDelay, untilBoundary);
+          }
+
+          return (minDelay === null ? 1000 : minDelay) + 10; // +10ms margin against early firing
+        }
+
         function scheduleTick() {
-          setTimeout(tick, 200);
+          setTimeout(tick, computeNextTickDelay(Date.now()));
         }
 
         function tick() {
