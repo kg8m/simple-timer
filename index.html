@@ -546,6 +546,15 @@
           return target;
         }
 
+        // Resolve the end time for (re)starting a timer, branching on its mode.
+        function computeRestartEndAt(t, now = Date.now()) {
+          if (t.mode === "time") {
+            return computeNextTimeBasedEndAt(t.targetTime, now);
+          }
+
+          return now + t.originalDuration;
+        }
+
         function humanize(ms) {
           ms = Math.max(0, Math.round(ms));
           const totalSec = Math.floor(ms / 1000);
@@ -676,14 +685,16 @@
                   >
                     ▶️
                   </button>`
-                : html`<button
-                    data-act="pause"
-                    title="Pause"
-                    aria-label="Pause"
-                    type="button"
-                  >
-                    ⏸️
-                  </button>`;
+                : t.mode === "time"
+                  ? ""
+                  : html`<button
+                      data-act="pause"
+                      title="Pause"
+                      aria-label="Pause"
+                      type="button"
+                    >
+                      ⏸️
+                    </button>`;
 
             row.innerHTML = html`
               <div class="title">
@@ -772,7 +783,9 @@
           trash.push({
             id: t.id,
             title: t.title,
+            mode: t.mode,
             originalDuration: t.originalDuration,
+            targetTime: t.targetTime,
             deletedAt: Date.now(),
           });
         }
@@ -840,7 +853,9 @@
           archived.push({
             id: t.id,
             title: t.title,
+            mode: t.mode,
             originalDuration: t.originalDuration,
+            targetTime: t.targetTime,
             archivedAt: Date.now(),
           });
         }
@@ -962,7 +977,7 @@
             render();
           } else if (act === "restart" && t) {
             const now = Date.now();
-            t.endAt = now + t.originalDuration;
+            t.endAt = computeRestartEndAt(t, now);
             t.createdAt = now;
             t.notified = false;
             t.paused = false;
@@ -990,11 +1005,13 @@
             timers.push({
               id: seq++,
               title: t.title,
-              endAt: now + t.originalDuration,
+              mode: t.mode,
+              endAt: computeRestartEndAt(t, now),
               createdAt: now,
               notified: false,
               paused: false,
               originalDuration: t.originalDuration,
+              targetTime: t.targetTime,
             });
 
             saveToStorage();
@@ -1020,11 +1037,13 @@
             timers.push({
               id: seq++,
               title: t.title,
-              endAt: now + t.originalDuration,
+              mode: t.mode,
+              endAt: computeRestartEndAt(t, now),
               createdAt: now,
               notified: false,
               paused: false,
               originalDuration: t.originalDuration,
+              targetTime: t.targetTime,
             });
             saveToStorage();
             render();
