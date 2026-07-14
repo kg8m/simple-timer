@@ -81,6 +81,21 @@
         padding: 16px;
       }
 
+      .sticky-sentinel {
+        height: 1px;
+      }
+
+      .sticky-form {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        transition: box-shadow 0.2s ease;
+      }
+
+      .sticky-form.stuck {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      }
+
       .row {
         display: flex;
         gap: 12px;
@@ -357,7 +372,8 @@
         <h1>Simple Timer</h1>
       </div>
 
-      <div class="card" role="region" aria-label="Add Timer">
+      <div class="sticky-sentinel" aria-hidden="true"></div>
+      <div class="card sticky-form" role="region" aria-label="Add Timer">
         <form id="timer-form" autocomplete="off">
           <div
             class="mode-toggle-row"
@@ -975,6 +991,19 @@
           });
         }
 
+        function setupStickyFormShadow() {
+          const sentinel = $(".sticky-sentinel");
+          const form = $(".sticky-form");
+          if (!sentinel || !form) return;
+          const observer = new IntersectionObserver(
+            ([entry]) => {
+              form.classList.toggle("stuck", !entry.isIntersecting);
+            },
+            { threshold: 0 },
+          );
+          observer.observe(sentinel);
+        }
+
         /*** Actions ***/
         // Toggle Duration/At-time input fields based on the selected mode
         const durationFieldEl = $("#duration-field");
@@ -1277,6 +1306,7 @@
         render();
         renderTrash();
         renderArchived();
+        setupStickyFormShadow();
         scheduleTick();
       })();
     </script>
