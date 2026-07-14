@@ -160,7 +160,16 @@
         border-top: none;
       }
 
+      .timer.trash-row {
+        grid-template-columns: 1.5fr 1fr 130px;
+      }
+
       .timer.list-header .controls {
+        justify-content: center;
+        text-align: center;
+      }
+
+      .timer.trash-row .controls {
         justify-content: center;
         text-align: center;
       }
@@ -218,6 +227,10 @@
       @media (max-width: 640px) {
         .timer {
           grid-template-columns: 1.2fr 1fr 1fr 0.8fr 75px;
+        }
+
+        .timer.trash-row {
+          grid-template-columns: 1.5fr 1fr 75px;
         }
 
         .controls {
@@ -284,6 +297,25 @@
         <div class="help">Timers will beep when finished.</div>
         <button id="clear-all" class="danger" type="button">Clear All</button>
       </div>
+
+      <div class="card list" id="trash-card" role="region" aria-label="Trash">
+        <div class="header" style="margin-bottom: 10px">
+          <h2 style="font-size: 16px; margin: 0">Trash</h2>
+          <span class="help">Restorable for 5 minutes after deletion.</span>
+        </div>
+        <div id="trash-empty" class="help">Trash is empty.</div>
+        <div
+          class="timer list-header trash-row"
+          id="trash-header"
+          aria-hidden="true"
+          style="opacity: 0.7; display: none"
+        >
+          <div class="title">Title</div>
+          <div class="remain">Purges In</div>
+          <div class="controls">Actions</div>
+        </div>
+        <div id="trash-list"></div>
+      </div>
     </div>
 
     <script>
@@ -291,14 +323,21 @@
         /*** State ***/
         /** @type {{id:number,title:string,endAt:number,createdAt:number,notified:boolean,paused:boolean,pausedAt?:number,remainingAtPause?:number,originalDuration:number}[]} */
         let timers = [];
+        /** @type {{id:number,title:string,originalDuration:number,deletedAt:number}[]} */
+        let trash = [];
         let seq = 1;
+
+        const TRASH_RETENTION_MS = 5 * 60 * 1000;
 
         /*** LocalStorage ***/
         const STORAGE_KEY = "simple-timer-data";
 
         function saveToStorage() {
           try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ seq, timers }));
+            localStorage.setItem(
+              STORAGE_KEY,
+              JSON.stringify({ seq, timers, trash }),
+            );
           } catch (e) {
             console.warn("Failed to save to localStorage:", e);
           }
@@ -311,6 +350,7 @@
               const parsed = JSON.parse(data);
               seq = parsed.seq || 1;
               timers = parsed.timers || [];
+              trash = parsed.trash || [];
             }
           } catch (e) {
             console.warn("Failed to load from localStorage:", e);
@@ -511,6 +551,58 @@
           }
         }
 
+        const trashListEl = $("#trash-list");
+        const trashEmptyEl = $("#trash-empty");
+        const trashHeaderEl = $("#trash-header");
+
+        function renderTrash() {
+          // sort by soonest to purge first
+          const sorted = [...trash].sort((a, b) => a.deletedAt - b.deletedAt);
+
+          trashEmptyEl.style.display = sorted.length ? "none" : "";
+          trashHeaderEl.style.display = sorted.length ? "" : "none";
+          trashListEl.innerHTML = "";
+
+          const now = Date.now();
+          for (const t of sorted) {
+            const row = document.createElement("div");
+            row.className = "timer trash-row";
+            row.dataset.id = String(t.id);
+
+            const purgesIn = clamp0(TRASH_RETENTION_MS - (now - t.deletedAt));
+
+            row.innerHTML = html`
+              <div class="title">
+                ${t.title
+                  ? escapeHtml(t.title)
+                  : `<span class="when">(${formatDurationLabel(t.originalDuration)})</span>`}
+              </div>
+              <div class="remain">${humanize(purgesIn)}</div>
+              <div class="controls">
+                <button data-act="restore" type="button">Restore</button>
+              </div>
+            `;
+
+            trashListEl.appendChild(row);
+          }
+        }
+
+        function moveToTrash(t) {
+          trash.push({
+            id: t.id,
+            title: t.title,
+            originalDuration: t.originalDuration,
+            deletedAt: Date.now(),
+          });
+        }
+
+        function purgeExpiredTrashItems() {
+          const now = Date.now();
+          const before = trash.length;
+          trash = trash.filter((t) => now - t.deletedAt < TRASH_RETENTION_MS);
+          return trash.length !== before;
+        }
+
         /*** Actions ***/
         // Create timer (Enter or button click)
         $("#timer-form").addEventListener("submit", (e) => {
@@ -553,10 +645,12 @@
           const id = Number(row?.dataset.id);
           const t = timers.find((x) => x.id === id);
 
-          if (act === "delete") {
-            timers = timers.filter((t) => t.id !== id);
+          if (act === "delete" && t) {
+            timers = timers.filter((x) => x.id !== id);
+            moveToTrash(t);
             saveToStorage();
             render();
+            renderTrash();
           } else if (act === "pause" && t && !t.paused) {
             const now = Date.now();
             t.paused = true;
@@ -586,13 +680,47 @@
           }
         });
 
+        // Trash controls (restore)
+        trashListEl.addEventListener("click", (e) => {
+          const btn = e.target.closest("button");
+          if (!btn) return;
+          const act = btn.getAttribute("data-act");
+          const row = btn.closest(".timer");
+          const id = Number(row?.dataset.id);
+          const idx = trash.findIndex((x) => x.id === id);
+          if (idx === -1) return;
+
+          if (act === "restore") {
+            const [t] = trash.splice(idx, 1);
+            const now = Date.now();
+
+            timers.push({
+              id: seq++,
+              title: t.title,
+              endAt: now + t.originalDuration,
+              createdAt: now,
+              notified: false,
+              paused: false,
+              originalDuration: t.originalDuration,
+            });
+
+            saveToStorage();
+            render();
+            renderTrash();
+          }
+        });
+
         // Clear all timers
         $("#clear-all").addEventListener("click", () => {
           if (timers.length === 0) return;
           if (confirm("Are you sure you want to delete all timers?")) {
+            for (const t of timers) {
+              moveToTrash(t);
+            }
             timers = [];
             saveToStorage();
             render();
+            renderTrash();
           }
         });
 
@@ -608,11 +736,26 @@
             }
           }
 
-          if (changed) {
+          const purged = purgeExpiredTrashItems();
+
+          if (changed || purged) {
             saveToStorage();
             render();
+            renderTrash();
             return;
           }
+
+          // lightweight in-place update of the trash countdown
+          const trashRows = [...trashListEl.children];
+          trashRows.forEach((row) => {
+            const id = Number(row.dataset.id);
+            const t = trash.find((x) => x.id === id);
+            if (!t) return;
+
+            const remainEl = $(".remain", row);
+            const purgesIn = clamp0(TRASH_RETENTION_MS - (now - t.deletedAt));
+            remainEl.textContent = humanize(purgesIn);
+          });
 
           // lightweight in-place update
           const rows = [...listEl.children];
@@ -647,7 +790,11 @@
           });
         }, 200);
 
+        if (purgeExpiredTrashItems()) {
+          saveToStorage();
+        }
         render();
+        renderTrash();
       })();
     </script>
   </body>
