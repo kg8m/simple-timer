@@ -168,6 +168,18 @@
         color: var(--accent);
       }
 
+      button.warn {
+        background: transparent;
+        border-color: var(--paused);
+        color: var(--paused);
+      }
+
+      button.neutral {
+        background: transparent;
+        border-color: var(--muted);
+        color: var(--muted);
+      }
+
       /* Icon-only action buttons (Pause/Resume/Restart/Archive/Delete/Restore) */
       .controls button {
         box-sizing: border-box;
@@ -302,7 +314,7 @@
 
       @media (max-width: 640px) {
         .timer {
-          grid-template-columns: 1.6fr 1fr 48px 118px;
+          grid-template-columns: 1.6fr 1fr 48px 122px;
           font-size: 14px;
         }
 
@@ -324,7 +336,7 @@
 
         /* Tighten button spacing so it doesn't read wider than the column gaps */
         .controls {
-          gap: 2px;
+          gap: 4px;
         }
 
         /* Rows: colored dot instead of the text label (Actions icons stay untouched) */
@@ -748,6 +760,7 @@
                 </button>`
               : t.paused
                 ? html`<button
+                    class="accent"
                     data-act="resume"
                     title="Resume"
                     aria-label="Resume"
@@ -758,6 +771,7 @@
                 : t.mode === "time"
                   ? ""
                   : html`<button
+                      class="warn"
                       data-act="pause"
                       title="Pause"
                       aria-label="Pause"
@@ -778,7 +792,11 @@
                 </div>
                 <div class="remain">${humanize(clamp0(remaining))}</div>
               </div>
-              <div class="status ${statusClass}" aria-label="${statusText}" title="${statusText}">
+              <div
+                class="status ${statusClass}"
+                aria-label="${statusText}"
+                title="${statusText}"
+              >
                 <span class="status-icon" aria-hidden="true">
                   ${statusIconFor(statusText)}
                 </span>
@@ -789,6 +807,7 @@
               <div class="controls">
                 ${pauseResumeBtn}
                 <button
+                  class="neutral"
                   data-act="archive"
                   title="Archive"
                   aria-label="Archive"
