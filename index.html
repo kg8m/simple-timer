@@ -30,6 +30,7 @@
         --accent: #22d3ee;
         --danger: #ef4444;
         --ok: #22c55e;
+        --paused: #f97316;
         --border: #1f2937;
       }
 
@@ -255,6 +256,16 @@
         color: var(--muted);
       }
 
+      .status.paused {
+        color: var(--paused);
+        font-weight: 700;
+      }
+
+      /* Desktop: text label. Narrow (see media query below): icon only. */
+      .status-icon {
+        display: none;
+      }
+
       .controls {
         display: flex;
         gap: 8px;
@@ -308,6 +319,15 @@
         /* Tighten button spacing so it doesn't read wider than the column gaps */
         .controls {
           gap: 2px;
+        }
+
+        /* Rows: colored dot instead of the text label (Actions icons stay untouched) */
+        .status-icon {
+          display: inline;
+        }
+
+        .status-text {
+          display: none;
         }
       }
     </style>
@@ -594,6 +614,14 @@
             : formatDurationLabel(t.originalDuration);
         }
 
+        // Compact status glyph shown at narrow widths (kept visually distinct
+        // from the Actions icons: colored dots, not shapes like play/pause).
+        function statusIconFor(statusText) {
+          if (statusText === "Running") return "🟢";
+          if (statusText === "Paused") return "🟠";
+          return "⚪️"; // Done: white circle + VS16 to force emoji-style rendering
+        }
+
         // Small badge indicating whether a timer was set by duration or by
         // a target clock time.
         function modeBadge(mode) {
@@ -684,7 +712,7 @@
             let statusText, statusClass;
             if (t.paused) {
               statusText = "Paused";
-              statusClass = "done";
+              statusClass = "paused";
             } else if (done) {
               statusText = "Done";
               statusClass = "done";
@@ -735,7 +763,14 @@
                 </div>
                 <div class="remain">${humanize(clamp0(remaining))}</div>
               </div>
-              <div class="status ${statusClass}">${statusText}</div>
+              <div class="status ${statusClass}" aria-label="${statusText}" title="${statusText}">
+                <span class="status-icon" aria-hidden="true">
+                  ${statusIconFor(statusText)}
+                </span>
+                <span class="status-text" aria-hidden="true">
+                  ${statusText}
+                </span>
+              </div>
               <div class="controls">
                 ${pauseResumeBtn}
                 <button
@@ -1146,6 +1181,8 @@
 
             const remainEl = $(".remain", row);
             const statusEl = $(".status", row);
+            const statusIconEl = $(".status-icon", statusEl);
+            const statusTextEl = $(".status-text", statusEl);
 
             let remaining;
             if (t.paused) {
@@ -1154,15 +1191,20 @@
               remaining = t.endAt - now;
             }
 
+            function setStatus(text, statusClass) {
+              statusEl.setAttribute("aria-label", text);
+              statusEl.setAttribute("title", text);
+              statusIconEl.textContent = statusIconFor(text);
+              statusTextEl.textContent = text;
+              statusEl.classList.remove("ok", "paused", "done");
+              statusEl.classList.add(statusClass);
+            }
+
             if (t.paused) {
-              statusEl.textContent = "Paused";
-              statusEl.classList.remove("ok");
-              statusEl.classList.add("done");
+              setStatus("Paused", "paused");
               remainEl.textContent = humanize(clamp0(remaining));
             } else if (remaining <= 0) {
-              statusEl.textContent = "Done";
-              statusEl.classList.remove("ok");
-              statusEl.classList.add("done");
+              setStatus("Done", "done");
               remainEl.textContent = humanize(0);
             } else {
               remainEl.textContent = humanize(remaining);
