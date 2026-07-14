@@ -650,10 +650,14 @@
         }
 
         // Small badge indicating whether a timer was set by duration or by
-        // a target clock time.
-        function modeBadge(mode) {
-          const isTime = mode === "time";
-          const label = isTime ? "At time" : "Duration";
+        // a target clock time. Tooltip shows the concrete value (e.g. the
+        // original duration) so it's visible even when a title hides the
+        // fallback label.
+        function modeBadge(t) {
+          const isTime = t.mode === "time";
+          const label = isTime
+            ? "At time"
+            : `Duration: ${formatDurationLabel(t.originalDuration)}`;
 
           return html`<span
             class="mode-badge"
@@ -782,7 +786,7 @@
 
             row.innerHTML = html`
               <div class="title">
-                ${modeBadge(t.mode)}${t.title
+                ${modeBadge(t)}${t.title
                   ? escapeHtml(t.title)
                   : `<span class="when">(${formatTimerLabel(t)})</span>`}
               </div>
@@ -853,7 +857,7 @@
 
             row.innerHTML = html`
               <div class="title">
-                ${modeBadge(t.mode)}${t.title
+                ${modeBadge(t)}${t.title
                   ? escapeHtml(t.title)
                   : `<span class="when">(${formatTimerLabel(t)})</span>`}
               </div>
@@ -915,7 +919,7 @@
 
             row.innerHTML = html`
               <div class="title">
-                ${modeBadge(t.mode)}${t.title
+                ${modeBadge(t)}${t.title
                   ? escapeHtml(t.title)
                   : `<span class="when">(${formatTimerLabel(t)})</span>`}
               </div>
