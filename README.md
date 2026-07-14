@@ -10,7 +10,8 @@ Just open `index.html` in your browser.
 
 - **Multiple Timers**: Manage multiple timers simultaneously
 - **Flexible Duration Input**: Supports various formats (`5:00`, `5`, `1h`, `30s`, `1:30:00`, etc.)
-- **Timer Controls**: Pause, resume, and restart individual timers
+- **Two Timer Modes**: Set a timer by duration ("5 minutes from now") or by a target clock time ("at 15:00"); each timer shows a badge (⏳/🕐) for its mode
+- **Timer Controls**: Pause, resume, and restart individual timers (Pause is only available for duration-based timers)
 - **Audio Notification**: Beeps when timers complete (using Web Audio API)
 - **Persistent Storage**: Timers are automatically saved in browser localStorage
 
