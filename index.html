@@ -201,10 +201,12 @@
         text-align: center;
       }
 
-      /* Ends At + Remaining share one column: spread across it when there's room */
+      /* Ends At + Remaining share one column: give each a fixed-width half so
+         one row's Remaining text isn't pushed by another row's differently
+         sized Ends At text (e.g. a paused "--:--:--" vs. a real time) */
       .when-remain {
-        display: flex;
-        justify-content: space-evenly;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         gap: 8px;
       }
 
@@ -314,6 +316,7 @@
 
         /* Stack Ends At above Remaining to save horizontal space */
         .when-remain {
+          display: flex;
           flex-direction: column;
           align-items: center;
           gap: 2px;
