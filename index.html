@@ -1098,7 +1098,12 @@
         });
 
         // Update remaining times every 200ms & detect completion
-        setInterval(() => {
+        // Reschedule via setTimeout so a slow tick doesn't queue up back-to-back runs like setInterval would
+        function scheduleTick() {
+          setTimeout(tick, 200);
+        }
+
+        function tick() {
           let changed = false;
           const now = Date.now();
           for (const t of timers) {
@@ -1115,6 +1120,7 @@
             saveToStorage();
             render();
             renderTrash();
+            scheduleTick();
             return;
           }
 
@@ -1161,7 +1167,9 @@
               remainEl.textContent = humanize(remaining);
             }
           });
-        }, 200);
+
+          scheduleTick();
+        }
 
         if (purgeExpiredTrashItems()) {
           saveToStorage();
@@ -1169,6 +1177,7 @@
         render();
         renderTrash();
         renderArchived();
+        scheduleTick();
       })();
     </script>
   </body>
