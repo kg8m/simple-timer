@@ -576,13 +576,20 @@
           return target;
         }
 
+        // Snap a duration-based endAt to the second grid so its countdown
+        // decrements in phase with other timers instead of drifting by the
+        // sub-second remainder of Date.now() at creation/resume time.
+        function alignEndAtToSecond(ms) {
+          return Math.round(ms / 1000) * 1000;
+        }
+
         // Resolve the end time for (re)starting a timer, branching on its mode.
         function computeRestartEndAt(t, now = Date.now()) {
           if (t.mode === "time") {
             return computeNextTimeBasedEndAt(t.targetTime, now);
           }
 
-          return now + t.originalDuration;
+          return alignEndAtToSecond(now + t.originalDuration);
         }
 
         function humanize(ms) {
@@ -854,7 +861,7 @@
             mode: t.mode,
             originalDuration: t.originalDuration,
             targetTime: t.targetTime,
-            deletedAt: Date.now(),
+            deletedAt: alignEndAtToSecond(Date.now()),
           });
         }
 
@@ -980,7 +987,7 @@
             }
 
             originalDuration = dur;
-            endAt = now + dur;
+            endAt = alignEndAtToSecond(now + dur);
           }
 
           timers.push({
@@ -1038,7 +1045,7 @@
           } else if (act === "resume" && t && t.paused) {
             const now = Date.now();
             t.paused = false;
-            t.endAt = now + (t.remainingAtPause || 0);
+            t.endAt = alignEndAtToSecond(now + (t.remainingAtPause || 0));
             t.notified = false;
             delete t.pausedAt;
             delete t.remainingAtPause;
