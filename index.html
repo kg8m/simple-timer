@@ -784,6 +784,19 @@
                       ⏸️
                     </button>`;
 
+            const skipBtn =
+              !done && !t.paused && t.mode === "time"
+                ? html`<button
+                    class="accent"
+                    data-act="skip"
+                    title="Skip to next day"
+                    aria-label="Skip to next day"
+                    type="button"
+                  >
+                    ⏭️
+                  </button>`
+                : "";
+
             row.innerHTML = html`
               <div class="title">
                 ${modeBadge(t)}${t.title
@@ -809,7 +822,7 @@
                 </span>
               </div>
               <div class="controls">
-                ${pauseResumeBtn}
+                ${pauseResumeBtn} ${skipBtn}
                 <button
                   class="neutral"
                   data-act="archive"
@@ -1085,6 +1098,10 @@
             t.paused = false;
             delete t.pausedAt;
             delete t.remainingAtPause;
+            saveToStorage();
+            render();
+          } else if (act === "skip" && t && t.mode === "time") {
+            t.endAt += 24 * 60 * 60 * 1000;
             saveToStorage();
             render();
           }
