@@ -164,6 +164,12 @@
         cursor: pointer;
       }
 
+      /* Icons are inline SVG (see icon() in the script); align them like text
+         instead of sitting on the default SVG baseline. */
+      svg {
+        vertical-align: middle;
+      }
+
       button.primary {
         background: linear-gradient(180deg, #0ea5e9, #06b6d4);
         border: 1px solid #0369a1;
@@ -657,12 +663,93 @@
             : formatDurationLabel(t.originalDuration);
         }
 
+        // Shared line-icon set (stroke-based, 24x24 viewBox) used by the
+        // Actions buttons, the status dot, and the mode badge, so every
+        // glyph in the UI shares one stroke weight/color model instead of
+        // mixing emoji drawn in unrelated styles. Color comes from the CSS
+        // `color` of whatever wraps the icon (buttons already carry
+        // accent/warn/danger/neutral colors; .status.ok/.paused/.done too),
+        // so call sites never need to pick a color themselves.
+        const STROKE_ICON_PATHS = {
+          "refresh-cw": html`
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path
+              d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+            ></path>
+          `,
+          play: html`<polygon points="5 3 19 12 5 21 5 3"></polygon> `,
+          pause: html`
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+          `,
+          "skip-forward": html`
+            <polygon points="5 4 15 12 5 20 5 4"></polygon>
+            <line x1="19" y1="5" x2="19" y2="19"></line>
+          `,
+          archive: html`
+            <polyline points="21 8 21 21 3 21 3 8"></polyline>
+            <rect x="1" y="3" width="22" height="5"></rect>
+            <line x1="10" y1="12" x2="14" y2="12"></line>
+          `,
+          trash: html`
+            <line x1="2" y1="6" x2="22" y2="6"></line>
+            <path d="M9 6V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4"></path>
+            <path d="M4 6l1 14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2l1-14"></path>
+            <line x1="10" y1="10" x2="10" y2="18"></line>
+            <line x1="14" y1="10" x2="14" y2="18"></line>
+          `,
+          "corner-up-left": html`
+            <polyline points="9 14 4 9 9 4"></polyline>
+            <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
+          `,
+          clock: html`
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          `,
+          hourglass: html`
+            <path
+              d="M6 3h12M6 21h12M7 3Q7 10 12 12Q7 14 7 21M17 3Q17 10 12 12Q17 14 17 21"
+            ></path>
+          `,
+        };
+
+        function icon(name, size = 18) {
+          if (name === "circle") {
+            return html`
+              <svg
+                viewBox="0 0 24 24"
+                width="${size}"
+                height="${size}"
+                fill="currentColor"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+              </svg>
+            `;
+          }
+
+          return html`
+            <svg
+              viewBox="0 0 24 24"
+              width="${size}"
+              height="${size}"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              ${STROKE_ICON_PATHS[name]}
+            </svg>
+          `;
+        }
+
         // Compact status glyph shown at narrow widths (kept visually distinct
-        // from the Actions icons: colored dots, not shapes like play/pause).
+        // from the Actions icons: a plain dot, not a shape like play/pause).
+        // Color comes from the wrapping .status.ok/.paused/.done class, so
+        // the dot itself doesn't need to branch on statusText.
         function statusIconFor(statusText) {
-          if (statusText === "Running") return "🟢";
-          if (statusText === "Paused") return "🟠";
-          return "⚪️"; // Done: white circle + VS16 to force emoji-style rendering
+          return icon("circle", 10);
         }
 
         // Small badge indicating whether a timer was set by duration or by
@@ -675,12 +762,11 @@
             ? "At time"
             : `Duration: ${formatDurationLabel(t.originalDuration)}`;
 
-          return html`<span
-            class="mode-badge"
-            title="${label}"
-            aria-label="${label}"
-            >${isTime ? "🕐" : "⏳"}</span
-          >`;
+          return html`
+            <span class="mode-badge" title="${label}" aria-label="${label}">
+              ${isTime ? icon("clock", 14) : icon("hourglass", 14)}
+            </span>
+          `;
         }
 
         /*** Sound ***/
@@ -769,48 +855,56 @@
             }
 
             const pauseResumeBtn = done
-              ? html`<button
-                  class="accent"
-                  data-act="restart"
-                  title="Restart"
-                  aria-label="Restart"
-                  type="button"
-                >
-                  🔄
-                </button>`
-              : t.paused
-                ? html`<button
+              ? html`
+                  <button
                     class="accent"
-                    data-act="resume"
-                    title="Resume"
-                    aria-label="Resume"
+                    data-act="restart"
+                    title="Restart"
+                    aria-label="Restart"
                     type="button"
                   >
-                    ▶️
-                  </button>`
-                : t.mode === "time"
-                  ? ""
-                  : html`<button
-                      class="warn"
-                      data-act="pause"
-                      title="Pause"
-                      aria-label="Pause"
+                    ${icon("refresh-cw")}
+                  </button>
+                `
+              : t.paused
+                ? html`
+                    <button
+                      class="accent"
+                      data-act="resume"
+                      title="Resume"
+                      aria-label="Resume"
                       type="button"
                     >
-                      ⏸️
-                    </button>`;
+                      ${icon("play")}
+                    </button>
+                  `
+                : t.mode === "time"
+                  ? ""
+                  : html`
+                      <button
+                        class="warn"
+                        data-act="pause"
+                        title="Pause"
+                        aria-label="Pause"
+                        type="button"
+                      >
+                        ${icon("pause")}
+                      </button>
+                    `;
 
             const skipBtn =
               !done && !t.paused && t.mode === "time"
-                ? html`<button
-                    class="accent"
-                    data-act="skip"
-                    title="Skip to next day"
-                    aria-label="Skip to next day"
-                    type="button"
-                  >
-                    ⏭️
-                  </button>`
+                ? html`
+                    <button
+                      class="accent"
+                      data-act="skip"
+                      title="Skip to next day"
+                      aria-label="Skip to next day"
+                      type="button"
+                    >
+                      ${icon("skip-forward")}
+                    </button>
+                  `
                 : "";
 
             row.innerHTML = html`
@@ -846,7 +940,7 @@
                   aria-label="Archive"
                   type="button"
                 >
-                  🗄️
+                  ${icon("archive")}
                 </button>
                 <button
                   class="danger"
@@ -855,7 +949,7 @@
                   aria-label="Delete"
                   type="button"
                 >
-                  🗑️
+                  ${icon("trash")}
                 </button>
               </div>
             `;
@@ -900,7 +994,7 @@
                   aria-label="Restore"
                   type="button"
                 >
-                  ↩️
+                  ${icon("corner-up-left")}
                 </button>
               </div>
             `;
@@ -962,7 +1056,7 @@
                   aria-label="Restart"
                   type="button"
                 >
-                  🔄
+                  ${icon("refresh-cw")}
                 </button>
                 <button
                   class="danger"
@@ -971,7 +1065,7 @@
                   aria-label="Delete"
                   type="button"
                 >
-                  🗑️
+                  ${icon("trash")}
                 </button>
               </div>
             `;
@@ -1309,7 +1403,7 @@
             function setStatus(text, statusClass) {
               statusEl.setAttribute("aria-label", text);
               statusEl.setAttribute("title", text);
-              statusIconEl.textContent = statusIconFor(text);
+              statusIconEl.innerHTML = statusIconFor(text);
               statusTextEl.textContent = text;
               statusEl.classList.remove("ok", "paused", "done");
               statusEl.classList.add(statusClass);
