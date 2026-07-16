@@ -428,7 +428,7 @@
 
             <div class="field" id="time-field" style="display: none">
               <label for="target-time">At time</label>
-              <input id="target-time" name="target-time" type="time" />
+              <input id="target-time" name="target-time" type="time" step="1" />
             </div>
 
             <div class="field">
@@ -596,16 +596,20 @@
           return 0;
         }
 
-        // Resolve "HH:MM" to the next occurrence of that time (today if it
-        // hasn't passed yet, otherwise tomorrow).
+        // Resolve "HH:MM" or "HH:MM:SS" to the next occurrence of that time
+        // (today if it hasn't passed yet, otherwise tomorrow). Seconds are
+        // optional and default to 0.
         function computeNextTimeBasedEndAt(timeStr, now = Date.now()) {
-          const m = String(timeStr || "").match(/^(\d{1,2}):(\d{2})$/);
+          const m = String(timeStr || "").match(
+            /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/,
+          );
           if (!m) return null;
 
           const hh = Number(m[1]);
           const mm = Number(m[2]);
+          const ss = m[3] ? Number(m[3]) : 0;
           const d = new Date(now);
-          d.setHours(hh, mm, 0, 0);
+          d.setHours(hh, mm, ss, 0);
 
           let target = d.getTime();
           if (target <= now) target += 24 * 60 * 60 * 1000;
@@ -656,11 +660,16 @@
         }
 
         // Fallback label for an untitled timer: the target time for "time"
-        // mode, or the configured duration for "duration" mode.
+        // mode, or the configured duration for "duration" mode. Trailing
+        // ":00" seconds are hidden since they're the common (omitted) case.
         function formatTimerLabel(t) {
-          return t.mode === "time"
-            ? escapeHtml(String(t.targetTime))
-            : formatDurationLabel(t.originalDuration);
+          if (t.mode !== "time") return formatDurationLabel(t.originalDuration);
+
+          const targetTime = String(t.targetTime).replace(
+            /^(\d{1,2}:\d{2}):00$/,
+            "$1",
+          );
+          return escapeHtml(targetTime);
         }
 
         // Shared line-icon set (stroke-based, 24x24 viewBox) used by the
@@ -1137,7 +1146,7 @@
             endAt = computeNextTimeBasedEndAt(targetTime, now);
 
             if (!targetTime || endAt == null) {
-              alert("Enter a valid time (HH:MM).");
+              alert("Enter a valid time (HH:MM or HH:MM:SS).");
               return;
             }
           } else {
