@@ -339,6 +339,44 @@
         border: 0;
       }
 
+      /* Custom tooltip: replaces the native `title` tooltip, whose show-delay
+         is browser-controlled (often 1-1.5s). Elements that want a hover/focus
+         tooltip carry data-tooltip="..." instead of title. */
+      [data-tooltip] {
+        position: relative;
+      }
+
+      [data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%) translateY(-6px);
+        background: var(--card);
+        color: var(--fg);
+        border: 1px solid var(--border);
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.1s ease;
+        z-index: 20;
+      }
+
+      [data-tooltip]:hover::after,
+      [data-tooltip]:focus-visible::after {
+        opacity: 1;
+        transition-delay: 150ms;
+      }
+
+      /* .field label has overflow: hidden (for text-overflow: ellipsis on
+         long labels), which would otherwise clip the tooltip bubble. */
+      .field label[data-tooltip] {
+        overflow: visible;
+      }
+
       @media (max-width: 640px) {
         .timer {
           grid-template-columns: 1.6fr 1fr 48px 122px;
@@ -420,7 +458,9 @@
             </div>
 
             <div class="field" id="duration-field">
-              <label for="duration" title="mm:ss / minutes / 1h / 30s / 2d etc."
+              <label
+                for="duration"
+                data-tooltip="mm:ss / minutes / 1h / 30s / 2d etc."
                 >Duration</label
               >
               <input
@@ -428,8 +468,12 @@
                 name="duration"
                 inputmode="numeric"
                 placeholder="5:00 / 5 / 1h / 30s / 2d"
+                aria-describedby="duration-hint"
                 required
               />
+              <span id="duration-hint" class="sr-only">
+                mm:ss / minutes / 1h / 30s / 2d etc.
+              </span>
             </div>
 
             <div class="field" id="time-field" style="display: none">
@@ -788,7 +832,11 @@
             : `Duration: ${formatDurationLabel(t.originalDuration)}`;
 
           return html`
-            <span class="mode-badge" title="${label}" aria-label="${label}">
+            <span
+              class="mode-badge"
+              data-tooltip="${label}"
+              aria-label="${label}"
+            >
               ${isTime ? icon("clock", 14) : icon("hourglass", 14)}
             </span>
           `;
@@ -884,7 +932,7 @@
                   <button
                     class="accent"
                     data-act="restart"
-                    title="Restart"
+                    data-tooltip="Restart"
                     aria-label="Restart"
                     type="button"
                   >
@@ -896,7 +944,7 @@
                     <button
                       class="accent"
                       data-act="resume"
-                      title="Resume"
+                      data-tooltip="Resume"
                       aria-label="Resume"
                       type="button"
                     >
@@ -909,7 +957,7 @@
                       <button
                         class="warn"
                         data-act="pause"
-                        title="Pause"
+                        data-tooltip="Pause"
                         aria-label="Pause"
                         type="button"
                       >
@@ -923,7 +971,7 @@
                     <button
                       class="accent"
                       data-act="skip"
-                      title="Skip to next day"
+                      data-tooltip="Skip to next day"
                       aria-label="Skip to next day"
                       type="button"
                     >
@@ -942,7 +990,7 @@
                 <div
                   class="when"
                   ${!t.paused && !isSameDay(t.endAt, now)
-                    ? `title="${toDateWithWeekday(t.endAt)}"`
+                    ? `data-tooltip="${toDateWithWeekday(t.endAt)}" aria-label="${toDateWithWeekday(t.endAt)} — ${toTime(t.endAt)}"`
                     : ""}
                 >
                   ${t.paused ? "--:--:--" : toTime(t.endAt)}
@@ -952,7 +1000,7 @@
               <div
                 class="status ${statusClass}"
                 aria-label="${statusText}"
-                title="${statusText}"
+                data-tooltip="${statusText}"
               >
                 <span class="status-icon" aria-hidden="true">
                   ${statusIconFor(statusText)}
@@ -966,7 +1014,7 @@
                 <button
                   class="neutral"
                   data-act="archive"
-                  title="Archive"
+                  data-tooltip="Archive"
                   aria-label="Archive"
                   type="button"
                 >
@@ -975,7 +1023,7 @@
                 <button
                   class="danger"
                   data-act="delete"
-                  title="Delete"
+                  data-tooltip="Delete"
                   aria-label="Delete"
                   type="button"
                 >
@@ -1020,7 +1068,7 @@
                 <button
                   class="accent"
                   data-act="restore"
-                  title="Restore"
+                  data-tooltip="Restore"
                   aria-label="Restore"
                   type="button"
                 >
@@ -1082,7 +1130,7 @@
                 <button
                   class="accent"
                   data-act="restart"
-                  title="Restart"
+                  data-tooltip="Restart"
                   aria-label="Restart"
                   type="button"
                 >
@@ -1091,7 +1139,7 @@
                 <button
                   class="danger"
                   data-act="delete"
-                  title="Delete"
+                  data-tooltip="Delete"
                   aria-label="Delete"
                   type="button"
                 >
@@ -1425,9 +1473,15 @@
             const statusTextEl = $(".status-text", statusEl);
 
             if (!t.paused && !isSameDay(t.endAt, now)) {
-              whenEl.setAttribute("title", toDateWithWeekday(t.endAt));
+              const dateLabel = toDateWithWeekday(t.endAt);
+              whenEl.setAttribute("data-tooltip", dateLabel);
+              whenEl.setAttribute(
+                "aria-label",
+                `${dateLabel} — ${toTime(t.endAt)}`,
+              );
             } else {
-              whenEl.removeAttribute("title");
+              whenEl.removeAttribute("data-tooltip");
+              whenEl.removeAttribute("aria-label");
             }
 
             let remaining;
@@ -1439,7 +1493,7 @@
 
             function setStatus(text, statusClass) {
               statusEl.setAttribute("aria-label", text);
-              statusEl.setAttribute("title", text);
+              statusEl.setAttribute("data-tooltip", text);
               statusIconEl.innerHTML = statusIconFor(text);
               statusTextEl.textContent = text;
               statusEl.classList.remove("ok", "paused", "done");
