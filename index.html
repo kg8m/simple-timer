@@ -566,6 +566,16 @@
         // time-only (no date)
         const toTime = (ts) =>
           new Date(ts).toLocaleTimeString([], { hour12: false });
+        const isSameDay = (a, b) =>
+          new Date(a).toDateString() === new Date(b).toDateString();
+        // date with weekday, for tooltips on cross-day "Ends At" times
+        const toDateWithWeekday = (ts) =>
+          new Date(ts).toLocaleDateString([], {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            weekday: "short",
+          });
 
         function parseDuration(input) {
           const s = String(input || "").trim();
@@ -929,7 +939,12 @@
                   : `<span class="when">(${formatTimerLabel(t)})</span>`}
               </div>
               <div class="when-remain">
-                <div class="when">
+                <div
+                  class="when"
+                  ${!t.paused && !isSameDay(t.endAt, now)
+                    ? `title="${toDateWithWeekday(t.endAt)}"`
+                    : ""}
+                >
                   ${t.paused ? "--:--:--" : toTime(t.endAt)}
                 </div>
                 <div class="remain">${humanize(clamp0(remaining))}</div>
@@ -1404,9 +1419,16 @@
             if (!t) return;
 
             const remainEl = $(".remain", row);
+            const whenEl = $(".when-remain .when", row);
             const statusEl = $(".status", row);
             const statusIconEl = $(".status-icon", statusEl);
             const statusTextEl = $(".status-text", statusEl);
+
+            if (!t.paused && !isSameDay(t.endAt, now)) {
+              whenEl.setAttribute("title", toDateWithWeekday(t.endAt));
+            } else {
+              whenEl.removeAttribute("title");
+            }
 
             let remaining;
             if (t.paused) {
