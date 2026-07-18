@@ -371,6 +371,14 @@
         transition-delay: 150ms;
       }
 
+      /* .mode-badge sits at the left edge of each row, so a centered tooltip
+         can run off-screen on narrow viewports. Anchor it to the badge's
+         left edge instead. */
+      .mode-badge[data-tooltip]::after {
+        left: -12px;
+        transform: translateY(-6px);
+      }
+
       /* .field label has overflow: hidden (for text-overflow: ellipsis on
          long labels), which would otherwise clip the tooltip bubble. */
       .field label[data-tooltip] {
